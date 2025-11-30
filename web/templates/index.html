@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCL Formatter & Syntax Debugger</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>TCL Formatter & Syntax Debugger</h1>
+            <p>Format and validate your TCL files online</p>
+        </header>
+
+        <main>
+            <section class="upload-section">
+                <h2>Select TCL File</h2>
+                <div class="file-input-wrapper">
+                    <input type="file" id="fileInput" accept=".tcl" />
+                    <label for="fileInput" class="file-label">Choose File</label>
+                    <span id="fileName" class="file-name">No file selected</span>
+                </div>
+            </section>
+
+            <section class="options-section">
+                <h2>Formatting Options</h2>
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="alignSet" name="align_set" />
+                        <label for="alignSet">Align Set Commands</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="expandLists" name="expand_lists" />
+                        <label for="expandLists">Expand Lists</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="strictIndent" name="strict_indent" />
+                        <label for="strictIndent">Strict Indentation</label>
+                    </div>
+                </div>
+            </section>
+
+            <section class="action-section">
+                <button id="formatBtn" class="format-button" disabled>Format File</button>
+            </section>
+
+            <section class="status-section">
+                <div id="status" class="status-display"></div>
+            </section>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

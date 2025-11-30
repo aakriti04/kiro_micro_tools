@@ -1,0 +1,100 @@
+@startuml TCL Formatter Sequence Diagram
+
+title TCL Formatter & Syntax Debugger - Sequence Diagram
+
+actor User
+participant "TCLFormatterUI" as UI
+participant "FormatterWorker" as Worker
+participant "TCLFormatter" as Formatter
+participant "SyntaxValidator" as Validator
+participant "IndentationEngine" as Indent
+participant "ListExpansionEngine" as ListExp
+participant "AlignmentEngine" as Align
+database "File System" as FS
+
+== File Selection ==
+User -> UI: Click "Browse" button
+UI -> FS: Open file dialog
+FS --> UI: Return selected file path
+UI -> UI: Validate .tcl extension
+UI -> UI: Enable "Format File" button
+UI --> User: Display file path
+
+== Configure Options ==
+User -> UI: Check/uncheck formatting options
+UI -> UI: Update formatting_options dict
+note right: Options:\n- align_set\n- expand_lists\n- strict_indent
+
+== Format File ==
+User -> UI: Click "Format File" button
+UI -> UI: Set operation_in_progress = True
+UI -> UI: Disable format button
+UI -> Worker: Create FormatterWorker(file_path, options)
+UI -> Worker: Start thread
+
+activate Worker
+Worker -> Formatter: Create TCLFormatter(options)
+activate Formatter
+
+Worker -> Formatter: format_file(file_path)
+
+Formatter -> FS: Read file with encoding detection
+FS --> Formatter: Return lines and encoding
+
+Formatter -> Validator: validate(lines)
+activate Validator
+Validator -> Validator: Process each line\n(stack-based matching)
+alt Syntax Errors Found
+    Validator --> Formatter: Return List[SyntaxError]
+    Formatter -> FS: Write errors.log
+    Formatter --> Worker: Return FormattingResult(success=False)
+    Worker -> UI: Emit finished signal
+    UI -> UI: Display error message
+    UI --> User: Show errors in status area
+else No Syntax Errors
+    Validator --> Formatter: Return empty list
+    deactivate Validator
+    
+    Formatter -> Indent: apply_indentation(lines)
+    activate Indent
+    Indent -> Indent: Calculate indent levels\nTrack brace nesting
+    Indent --> Formatter: Return indented lines
+    deactivate Indent
+    
+    opt expand_lists enabled
+        Formatter -> ListExp: expand_long_lists(lines)
+        activate ListExp
+        ListExp -> ListExp: Find lists > 80 chars\nExpand to multiline
+        ListExp --> Formatter: Return expanded lines
+        deactivate ListExp
+    end
+    
+    opt align_set enabled
+        Formatter -> Align: align_set_commands(lines)
+        activate Align
+        Align -> Align: Find set command blocks\nAlign assignment values
+        Align --> Formatter: Return aligned lines
+        deactivate Align
+    else align_set disabled
+        Formatter -> Align: apply_single_space(lines)
+        activate Align
+        Align --> Formatter: Return normalized lines
+        deactivate Align
+    end
+    
+    Formatter -> FS: Write *_formatted.tcl
+    FS --> Formatter: Success
+    
+    Formatter --> Worker: Return FormattingResult(success=True)
+    deactivate Formatter
+    
+    Worker -> UI: Emit finished signal
+    deactivate Worker
+    
+    UI -> UI: Re-enable format button
+    UI -> UI: Set operation_in_progress = False
+    UI -> UI: Display success message
+    UI --> User: Show output file path
+end
+
+@enduml

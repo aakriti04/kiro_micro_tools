@@ -1,0 +1,181 @@
+@startuml TCL Formatter Architecture
+
+!define LIGHTYELLOW #FFFACD
+!define LIGHTBLUE #ADD8E6
+!define LIGHTGREEN #90EE90
+!define LIGHTCORAL #F08080
+
+title TCL Formatter & Syntax Debugger - Class Diagram
+
+package "UI Layer (PyQt6)" LIGHTYELLOW {
+    class TCLFormatterUI {
+        - selected_file_path: Optional[str]
+        - formatting_options: dict
+        - operation_in_progress: bool
+        - worker: Optional[FormatterWorker]
+        - file_path_display: QLineEdit
+        - format_button: QPushButton
+        - status_output: QTextEdit
+        - align_set_checkbox: QCheckBox
+        - expand_lists_checkbox: QCheckBox
+        - strict_indent_checkbox: QCheckBox
+        --
+        + __init__()
+        + setup_ui()
+        + browse_file()
+        + format_file()
+        + get_formatting_options(): dict
+        + update_status(message: str, is_error: bool)
+        - _create_file_section(): QGroupBox
+        - _create_options_section(): QGroupBox
+        - _create_status_section(): QGroupBox
+        - _on_formatting_complete(result: FormattingResult)
+        - _on_align_set_changed(state)
+        - _on_expand_lists_changed(state)
+        - _on_strict_indent_changed(state)
+    }
+
+    class FormatterWorker {
+        - file_path: str
+        - options: dict
+        --
+        + __init__(file_path: str, options: dict)
+        + run()
+        --
+        <<signal>> finished(FormattingResult)
+    }
+
+    TCLFormatterUI "1" --> "0..1" FormatterWorker : creates
+}
+
+package "Core Engine Layer" LIGHTBLUE {
+    class TCLFormatter {
+        - align_set: bool
+        - expand_lists: bool
+        - strict_indent: bool
+        - syntax_validator: SyntaxValidator
+        - indentation_engine: IndentationEngine
+        - list_expansion_engine: ListExpansionEngine
+        - alignment_engine: AlignmentEngine
+        --
+        + __init__(align_set: bool, expand_lists: bool, strict_indent: bool)
+        + format_file(file_path: str): FormattingResult
+        - _read_file(file_path: str): List[str]
+        - _format_lines(lines: List[str]): List[str]
+        - _write_file(file_path: str, lines: List[str])
+        - _generate_error_log(input_path: str, errors: List[SyntaxError]): str
+        - _generate_output_path(input_path: str): str
+    }
+
+    class SyntaxValidator {
+        - stack: List[StackFrame]
+        - errors: List[SyntaxError]
+        --
+        + __init__()
+        + validate(lines: List[str]): List[SyntaxError]
+        - _handle_line_continuations(lines: List[str]): List[Tuple[int, str]]
+        - _process_line(line: str, line_num: int)
+        - _push(char: str, line_num: int, position: int)
+        - _pop(char: str, line_num: int, position: int): Optional[SyntaxError]
+        - _check_remaining_stack()
+    }
+
+    class IndentationEngine {
+        - strict_mode: bool
+        + {static} INDENT_SIZE: int = 2
+        + {static} BLOCK_KEYWORDS: List[str]
+        --
+        + __init__(strict_mode: bool)
+        + apply_indentation(lines: List[str]): List[str]
+        - _calculate_indent_level(line: str, current_level: int, in_string: bool): int
+        - _update_level_after_line(line: str, line_level: int, in_string: bool): int
+        - _update_string_state(line: str, in_string: bool): bool
+        - _is_continuation_line(line: str): bool
+    }
+
+    class ListExpansionEngine {
+        + {static} LIST_LENGTH_THRESHOLD: int = 80
+        --
+        + __init__()
+        + expand_long_lists(lines: List[str]): List[str]
+        - _should_expand_list(line: str): bool
+        - _expand_list(line: str): List[str]
+        - _parse_list_items(list_content: str): List[str]
+    }
+
+    class AlignmentEngine {
+        --
+        + __init__()
+        + align_set_commands(lines: List[str]): List[str]
+        + apply_single_space(lines: List[str]): List[str]
+        - _find_set_blocks(lines: List[str]): List[List[int]]
+        - _is_set_command(line: str): bool
+        - _align_block(lines: List[str], block_indices: List[int]): List[str]
+        - _parse_set_command(line: str): Optional[dict]
+    }
+
+    TCLFormatter "1" *-- "1" SyntaxValidator : contains
+    TCLFormatter "1" *-- "1" IndentationEngine : contains
+    TCLFormatter "1" *-- "1" ListExpansionEngine : contains
+    TCLFormatter "1" *-- "1" AlignmentEngine : contains
+}
+
+' Cross-package relationships
+FormatterWorker ..> TCLFormatter : uses
+
+package "Data Models" LIGHTGREEN {
+    class SyntaxError <<dataclass>> {
+        + line_number: int
+        + message: str
+        + error_type: str
+    }
+
+    class StackFrame <<dataclass>> {
+        + char: str
+        + line_number: int
+        + position: int
+    }
+
+    class FormattingResult <<dataclass>> {
+        + success: bool
+        + output_path: Optional[str]
+        + error_path: Optional[str]
+        + errors: Optional[List[SyntaxError]]
+        + message: str
+    }
+
+    SyntaxValidator ..> SyntaxError : creates
+    SyntaxValidator ..> StackFrame : uses
+    TCLFormatter ..> FormattingResult : returns
+}
+
+package "Entry Point" LIGHTCORAL {
+    class Main {
+        + {static} main(): int
+    }
+
+    Main ..> TCLFormatterUI : creates
+}
+
+note right of TCLFormatter
+  Main orchestrator that:
+  1. Reads TCL file with encoding detection
+  2. Validates syntax
+  3. Applies formatting engines
+  4. Writes output or error log
+end note
+
+note right of SyntaxValidator
+  Stack-based validation:
+  - Tracks opening braces/quotes
+  - Matches with closing characters
+  - Reports mismatches and unmatched
+end note
+
+note bottom of FormatterWorker
+  QThread worker prevents
+  UI freezing during
+  formatting operations
+end note
+
+@enduml
