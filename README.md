@@ -301,14 +301,4 @@ tcl-formatter-debugger/
 - This shouldn't happen - both use the same formatter
 - Report this as a bug with example files
 
-## License
 
-This project is provided as-is for educational and development purposes.
-
-## Contributing
-
-Contributions are welcome! Please ensure:
-- All tests pass before submitting changes
-- New features include appropriate tests
-- Code follows the existing style conventions
-- Documentation is updated for new features
